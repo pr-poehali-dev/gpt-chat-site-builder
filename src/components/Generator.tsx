@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useToast } from '@/hooks/use-toast';
 import Icon from '@/components/ui/icon';
 
 interface Message {
@@ -23,6 +24,7 @@ interface GeneratedSite {
 }
 
 const Generator = () => {
+  const { toast } = useToast();
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'ai',
@@ -33,6 +35,8 @@ const Generator = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedSite, setGeneratedSite] = useState<GeneratedSite | null>(null);
   const [previewTab, setPreviewTab] = useState<'preview' | 'html' | 'css' | 'js'>('preview');
+  const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
+  const [isPublishing, setIsPublishing] = useState(false);
 
   const handleSend = async () => {
     if (!input.trim()) return;
@@ -42,6 +46,7 @@ const Generator = () => {
     setMessages((prev) => [...prev, userMessage]);
     setInput('');
     setIsGenerating(true);
+    setPublishedUrl(null);
 
     const aiMessage: Message = {
       role: 'ai',
@@ -63,7 +68,7 @@ const Generator = () => {
 
       const successMessage: Message = {
         role: 'ai',
-        content: '✅ Готово! Ваш сайт создан. Посмотрите превью справа →',
+        content: '✅ Готово! Ваш сайт создан. Посмотрите превью справа → Можете опубликовать его!',
       };
       setMessages((prev) => [...prev, successMessage]);
     } catch (error) {
@@ -74,6 +79,56 @@ const Generator = () => {
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const handlePublish = async () => {
+    if (!generatedSite) return;
+
+    setIsPublishing(true);
+
+    try {
+      const response = await fetch('https://functions.poehali.dev/0b559006-df15-4d38-89d9-6357a67c2c84', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: generatedSite.metadata.description,
+          description: generatedSite.metadata.description,
+          html_content: generatedSite.html,
+          css_content: generatedSite.css,
+          js_content: generatedSite.js,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        const publicUrl = `https://functions.poehali.dev/5dd0b84c-6c65-4ef4-bbf3-57de039b0294?slug=${data.slug}`;
+        setPublishedUrl(publicUrl);
+
+        const successMessage: Message = {
+          role: 'ai',
+          content: `🎉 Сайт опубликован!\n\n📎 Ссылка: ${publicUrl}\n\nМожете поделиться этой ссылкой с кем угодно!`,
+        };
+        setMessages((prev) => [...prev, successMessage]);
+
+        toast({
+          title: 'Сайт опубликован!',
+          description: 'Ссылка скопирована в буфер обмена',
+        });
+
+        navigator.clipboard.writeText(publicUrl);
+      }
+    } catch (error) {
+      toast({
+        title: 'Ошибка публикации',
+        description: 'Попробуйте ещё раз',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsPublishing(false);
     }
   };
 
@@ -180,13 +235,29 @@ const Generator = () => {
                 <span className="font-semibold">Превью</span>
               </div>
               {generatedSite && (
-                <Button
-                  size="sm"
-                  className="bg-gradient-to-r from-primary to-secondary hover:opacity-90"
-                >
-                  <Icon name="Download" size={16} className="mr-2" />
-                  Скачать
-                </Button>
+                <div className="flex gap-2">
+                  {publishedUrl ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="glass-effect border-white/10"
+                      onClick={() => window.open(publishedUrl, '_blank')}
+                    >
+                      <Icon name="ExternalLink" size={16} className="mr-2" />
+                      Открыть сайт
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      className="bg-gradient-to-r from-primary to-secondary hover:opacity-90"
+                      onClick={handlePublish}
+                      disabled={isPublishing}
+                    >
+                      <Icon name="Upload" size={16} className="mr-2" />
+                      {isPublishing ? 'Публикуем...' : 'Опубликовать'}
+                    </Button>
+                  )}
+                </div>
               )}
             </div>
 

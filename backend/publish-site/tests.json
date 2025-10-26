@@ -1,0 +1,29 @@
+{
+  "tests": [
+    {
+      "name": "Publish website successfully",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "title": "Test Site",
+        "description": "Test description",
+        "html_content": "<h1>Test</h1>",
+        "css_content": "body { margin: 0; }",
+        "js_content": "console.log('test');"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true,
+        "slug": "string",
+        "url": "string"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Handle OPTIONS request",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    }
+  ]
+}
