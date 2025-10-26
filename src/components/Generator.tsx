@@ -37,6 +37,10 @@ const Generator = () => {
   const [previewTab, setPreviewTab] = useState<'preview' | 'html' | 'css' | 'js'>('preview');
   const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [ownerKey, setOwnerKey] = useState<string | null>(null);
+  const [customDomain, setCustomDomain] = useState('');
+  const [pages, setPages] = useState<string[]>([]);
+  const [awaitingPages, setAwaitingPages] = useState(false);
 
   const handleSend = async () => {
     if (!input.trim()) return;
@@ -45,22 +49,37 @@ const Generator = () => {
     const userInput = input;
     setMessages((prev) => [...prev, userMessage]);
     setInput('');
+    
+    if (!awaitingPages) {
+      const questionMessage: Message = {
+        role: 'ai',
+        content: 'Отлично! Сколько страниц должно быть на сайте? Например: Главная, О нас, Контакты',
+      };
+      setMessages((prev) => [...prev, questionMessage]);
+      setAwaitingPages(true);
+      return;
+    }
+
+    const pagesList = userInput.split(',').map(p => p.trim()).filter(p => p);
+    setPages(pagesList);
+    setAwaitingPages(false);
     setIsGenerating(true);
     setPublishedUrl(null);
 
     const aiMessage: Message = {
       role: 'ai',
-      content: `Отлично! Генерирую сайт на основе: "${userInput}"\n\n⚡ Создаю структуру...\n🎨 Применяю дизайн...\n✨ Добавляю интерактивность...`,
+      content: `Генерирую сайт с страницами: ${pagesList.join(', ')}\n\n⚡ Создаю структуру...\n🎨 Применяю дизайн...\n✨ Добавляю навигацию...`,
     };
     setMessages((prev) => [...prev, aiMessage]);
 
     try {
+      const prevMessages = messages.filter(m => m.role === 'user').slice(-2);
+      const description = prevMessages[0]?.content || userInput;
+      
       const response = await fetch('https://functions.poehali.dev/6a39d8fd-078a-470e-bca3-92925135eded', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ description: userInput }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description, pages: pagesList }),
       });
 
       const data = await response.json();
@@ -68,13 +87,13 @@ const Generator = () => {
 
       const successMessage: Message = {
         role: 'ai',
-        content: '✅ Готово! Ваш сайт создан. Посмотрите превью справа → Можете опубликовать его!',
+        content: `✅ Готово! Сайт с ${pagesList.length} страницами создан. Посмотрите превью справа →`,
       };
       setMessages((prev) => [...prev, successMessage]);
     } catch (error) {
       const errorMessage: Message = {
         role: 'ai',
-        content: '❌ Произошла ошибка при генерации. Попробуйте ещё раз.',
+        content: '❌ Произошла ошибка. Попробуйте ещё раз.',
       };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
@@ -90,36 +109,37 @@ const Generator = () => {
     try {
       const response = await fetch('https://functions.poehali.dev/0b559006-df15-4d38-89d9-6357a67c2c84', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: generatedSite.metadata.description,
           description: generatedSite.metadata.description,
           html_content: generatedSite.html,
           css_content: generatedSite.css,
           js_content: generatedSite.js,
+          custom_domain: customDomain || null,
+          pages: generatedSite.pages || [],
         }),
       });
 
       const data = await response.json();
 
       if (data.success) {
-        const publicUrl = `https://functions.poehali.dev/5dd0b84c-6c65-4ef4-bbf3-57de039b0294?slug=${data.slug}`;
-        setPublishedUrl(publicUrl);
+        setOwnerKey(data.owner_key);
+        localStorage.setItem('ownerKey', data.owner_key);
+        setPublishedUrl(data.url);
 
         const successMessage: Message = {
           role: 'ai',
-          content: `🎉 Сайт опубликован!\n\n📎 Ссылка: ${publicUrl}\n\nМожете поделиться этой ссылкой с кем угодно!`,
+          content: `🎉 Сайт опубликован!\n\n📎 Ссылка: ${data.url}\n🔑 Ключ владельца: ${data.owner_key}\n\nСохраните ключ - он нужен для редактирования!`,
         };
         setMessages((prev) => [...prev, successMessage]);
 
         toast({
           title: 'Сайт опубликован!',
-          description: 'Ссылка скопирована в буфер обмена',
+          description: 'Ключ владельца сохранён',
         });
 
-        navigator.clipboard.writeText(publicUrl);
+        navigator.clipboard.writeText(data.url);
       }
     } catch (error) {
       toast({
@@ -235,7 +255,15 @@ const Generator = () => {
                 <span className="font-semibold">Превью</span>
               </div>
               {generatedSite && (
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
+                  {!publishedUrl && (
+                    <Input
+                      value={customDomain}
+                      onChange={(e) => setCustomDomain(e.target.value)}
+                      placeholder="example.com (опционально)"
+                      className="glass-effect border-white/10 w-48 h-8 text-sm"
+                    />
+                  )}
                   {publishedUrl ? (
                     <Button
                       size="sm"

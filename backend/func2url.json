@@ -1,4 +1,6 @@
 {
+  "update-site": "https://functions.poehali.dev/1e64ab20-ec4a-4963-ba58-2c4a09e3a872",
+  "get-my-sites": "https://functions.poehali.dev/6f021db9-211a-446c-a77c-dbf53e721ac0",
   "get-site": "https://functions.poehali.dev/5dd0b84c-6c65-4ef4-bbf3-57de039b0294",
   "publish-site": "https://functions.poehali.dev/0b559006-df15-4d38-89d9-6357a67c2c84",
   "generate-site": "https://functions.poehali.dev/6a39d8fd-078a-470e-bca3-92925135eded"

@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/card';
 import Icon from '@/components/ui/icon';
 import Generator from '@/components/Generator';
 import Domains from '@/components/Domains';
+import Dashboard from '@/components/Dashboard';
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState('home');
@@ -25,10 +26,10 @@ const Index = () => {
             <Button variant="ghost" onClick={() => setActiveTab('generator')}>
               Генератор
             </Button>
-            <Button variant="ghost" onClick={() => setActiveTab('domains')}>
-              Домены
+            <Button variant="ghost" onClick={() => setActiveTab('dashboard')}>
+              Мои сайты
             </Button>
-            <Button className="bg-gradient-to-r from-primary to-secondary hover:opacity-90">
+            <Button className="bg-gradient-to-r from-primary to-secondary hover:opacity-90" onClick={() => setActiveTab('generator')}>
               Начать
             </Button>
           </div>
@@ -129,6 +130,7 @@ const Index = () => {
 
         {activeTab === 'generator' && <Generator />}
         {activeTab === 'domains' && <Domains />}
+        {activeTab === 'dashboard' && <Dashboard />}
       </main>
 
       <footer className="border-t border-white/10 py-12">

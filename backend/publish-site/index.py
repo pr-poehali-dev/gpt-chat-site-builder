@@ -2,9 +2,14 @@ import json
 import os
 import uuid
 import re
-from typing import Dict, Any
+from typing import Dict, Any, List, Optional
 from pydantic import BaseModel, Field
 import psycopg
+
+class PageData(BaseModel):
+    name: str
+    html: str
+    route: str
 
 class PublishRequest(BaseModel):
     title: str = Field(..., min_length=1)
@@ -12,6 +17,8 @@ class PublishRequest(BaseModel):
     html_content: str = Field(..., min_length=1)
     css_content: str = Field(..., min_length=1)
     js_content: str = Field(..., min_length=1)
+    custom_domain: Optional[str] = None
+    pages: List[PageData] = []
 
 def generate_slug(title: str) -> str:
     slug = title.lower()
@@ -68,18 +75,35 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     website_id = str(uuid.uuid4())
     slug = generate_slug(request_data.title)
+    owner_key = str(uuid.uuid4())
+    
+    pages_json = json.dumps([p.dict() for p in request_data.pages]) if request_data.pages else '[]'
+    
+    title_esc = request_data.title.replace("'", "''")
+    desc_esc = request_data.description.replace("'", "''")
+    html_esc = request_data.html_content.replace("'", "''")
+    css_esc = request_data.css_content.replace("'", "''")
+    js_esc = request_data.js_content.replace("'", "''")
+    domain_esc = request_data.custom_domain.replace("'", "''") if request_data.custom_domain else 'NULL'
     
     with psycopg.connect(database_url, autocommit=True) as conn:
         with conn.cursor() as cur:
-            query = f"""
-                INSERT INTO websites (id, title, description, html_content, css_content, js_content, slug, published)
-                VALUES ('{website_id}', '{request_data.title.replace("'", "''")}', '{request_data.description.replace("'", "''")}', 
-                        '{request_data.html_content.replace("'", "''")}', '{request_data.css_content.replace("'", "''")}', 
-                        '{request_data.js_content.replace("'", "''")}', '{slug}', true)
-            """
+            if request_data.custom_domain:
+                query = f"""
+                    INSERT INTO websites (id, title, description, html_content, css_content, js_content, slug, published, owner_key, custom_domain, pages)
+                    VALUES ('{website_id}', '{title_esc}', '{desc_esc}', '{html_esc}', '{css_esc}', '{js_esc}', '{slug}', true, '{owner_key}', '{domain_esc}', '{pages_json}')
+                """
+            else:
+                query = f"""
+                    INSERT INTO websites (id, title, description, html_content, css_content, js_content, slug, published, owner_key, pages)
+                    VALUES ('{website_id}', '{title_esc}', '{desc_esc}', '{html_esc}', '{css_esc}', '{js_esc}', '{slug}', true, '{owner_key}', '{pages_json}')
+                """
             cur.execute(query)
     
-    public_url = f"https://your-domain.com/site/{slug}"
+    if request_data.custom_domain:
+        public_url = f"https://{request_data.custom_domain}"
+    else:
+        public_url = f"https://functions.poehali.dev/5dd0b84c-6c65-4ef4-bbf3-57de039b0294?slug={slug}"
     
     return {
         'statusCode': 200,
@@ -92,6 +116,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'success': True,
             'website_id': website_id,
             'slug': slug,
+            'owner_key': owner_key,
             'url': public_url,
             'message': 'Сайт успешно опубликован!'
         })

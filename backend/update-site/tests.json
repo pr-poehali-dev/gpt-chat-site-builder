@@ -1,0 +1,21 @@
+{
+  "tests": [
+    {
+      "name": "Update without owner key",
+      "method": "PUT",
+      "path": "/",
+      "body": {
+        "owner_key": "invalid-key",
+        "slug": "test-slug",
+        "html_content": "<h1>Updated</h1>"
+      },
+      "expectedStatus": 403
+    },
+    {
+      "name": "Handle OPTIONS request",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    }
+  ]
+}
