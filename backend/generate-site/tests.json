@@ -1,0 +1,29 @@
+{
+  "tests": [
+    {
+      "name": "Generate site from description",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "description": "Лендинг для IT стартапа"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "html": "string",
+        "css": "string",
+        "js": "string",
+        "metadata": {
+          "framework": "vanilla",
+          "status": "ready"
+        }
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Handle OPTIONS request",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    }
+  ]
+}

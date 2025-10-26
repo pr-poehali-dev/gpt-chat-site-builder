@@ -2,11 +2,24 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Icon from '@/components/ui/icon';
 
 interface Message {
   role: 'user' | 'ai';
   content: string;
+}
+
+interface GeneratedSite {
+  html: string;
+  css: string;
+  js: string;
+  metadata: {
+    generatedAt: string;
+    description: string;
+    framework: string;
+    status: string;
+  };
 }
 
 const Generator = () => {
@@ -18,31 +31,50 @@ const Generator = () => {
   ]);
   const [input, setInput] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedSite, setGeneratedSite] = useState<GeneratedSite | null>(null);
+  const [previewTab, setPreviewTab] = useState<'preview' | 'html' | 'css' | 'js'>('preview');
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!input.trim()) return;
 
     const userMessage: Message = { role: 'user', content: input };
+    const userInput = input;
     setMessages((prev) => [...prev, userMessage]);
     setInput('');
     setIsGenerating(true);
 
-    setTimeout(() => {
-      const aiMessage: Message = {
-        role: 'ai',
-        content: `Отлично! Я создаю сайт на основе вашего описания: "${input}". 
-        
-Сайт будет включать:
-• Современный дизайн с градиентами
-• Адаптивную вёрстку для всех устройств
-• Оптимизированную производительность
-• SEO-оптимизацию
+    const aiMessage: Message = {
+      role: 'ai',
+      content: `Отлично! Генерирую сайт на основе: "${userInput}"\n\n⚡ Создаю структуру...\n🎨 Применяю дизайн...\n✨ Добавляю интерактивность...`,
+    };
+    setMessages((prev) => [...prev, aiMessage]);
 
-Генерация займёт около 30 секунд...`,
+    try {
+      const response = await fetch('https://functions.poehali.dev/6a39d8fd-078a-470e-bca3-92925135eded', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ description: userInput }),
+      });
+
+      const data = await response.json();
+      setGeneratedSite(data);
+
+      const successMessage: Message = {
+        role: 'ai',
+        content: '✅ Готово! Ваш сайт создан. Посмотрите превью справа →',
       };
-      setMessages((prev) => [...prev, aiMessage]);
+      setMessages((prev) => [...prev, successMessage]);
+    } catch (error) {
+      const errorMessage: Message = {
+        role: 'ai',
+        content: '❌ Произошла ошибка при генерации. Попробуйте ещё раз.',
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
       setIsGenerating(false);
-    }, 1500);
+    }
   };
 
   return (
@@ -71,7 +103,7 @@ const Generator = () => {
                 {messages.map((message, index) => (
                   <div
                     key={index}
-                    className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                    className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}
                   >
                     <div
                       className={`max-w-[80%] rounded-2xl px-4 py-3 ${
@@ -85,12 +117,12 @@ const Generator = () => {
                   </div>
                 ))}
                 {isGenerating && (
-                  <div className="flex justify-start">
+                  <div className="flex justify-start animate-fade-in">
                     <div className="glass-effect rounded-2xl px-4 py-3">
                       <div className="flex gap-2">
                         <div className="w-2 h-2 bg-primary rounded-full animate-bounce" />
-                        <div className="w-2 h-2 bg-primary rounded-full animate-bounce delay-100" />
-                        <div className="w-2 h-2 bg-primary rounded-full animate-bounce delay-200" />
+                        <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
+                        <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
                       </div>
                     </div>
                   </div>
@@ -141,33 +173,70 @@ const Generator = () => {
             </div>
           </div>
 
-          <Card className="glass-effect p-6 h-[600px]">
+          <Card className="glass-effect p-6 h-[600px] flex flex-col">
             <div className="flex items-center justify-between mb-4 pb-4 border-b border-white/10">
               <div className="flex items-center gap-2">
                 <Icon name="Monitor" size={20} className="text-primary" />
                 <span className="font-semibold">Превью</span>
               </div>
-              <div className="flex gap-2">
-                <Button variant="ghost" size="sm">
-                  <Icon name="Smartphone" size={16} />
+              {generatedSite && (
+                <Button
+                  size="sm"
+                  className="bg-gradient-to-r from-primary to-secondary hover:opacity-90"
+                >
+                  <Icon name="Download" size={16} className="mr-2" />
+                  Скачать
                 </Button>
-                <Button variant="ghost" size="sm">
-                  <Icon name="Tablet" size={16} />
-                </Button>
-                <Button variant="ghost" size="sm">
-                  <Icon name="Monitor" size={16} />
-                </Button>
-              </div>
+              )}
             </div>
 
-            <div className="h-[calc(100%-60px)] bg-gradient-to-br from-primary/10 to-secondary/10 rounded-lg flex items-center justify-center">
-              <div className="text-center space-y-4">
-                <Icon name="Layout" size={64} className="text-primary/50 mx-auto" />
-                <p className="text-muted-foreground">
-                  Здесь появится превью вашего сайта
-                </p>
+            {generatedSite ? (
+              <Tabs value={previewTab} onValueChange={(v) => setPreviewTab(v as typeof previewTab)} className="flex-1 flex flex-col">
+                <TabsList className="glass-effect border-white/10 mb-4">
+                  <TabsTrigger value="preview">Превью</TabsTrigger>
+                  <TabsTrigger value="html">HTML</TabsTrigger>
+                  <TabsTrigger value="css">CSS</TabsTrigger>
+                  <TabsTrigger value="js">JS</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="preview" className="flex-1 mt-0">
+                  <div className="h-full bg-white rounded-lg overflow-hidden animate-fade-in">
+                    <iframe
+                      srcDoc={`${generatedSite.html}<style>${generatedSite.css}</style><script>${generatedSite.js}</script>`}
+                      className="w-full h-full"
+                      title="Preview"
+                    />
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="html" className="flex-1 mt-0 overflow-hidden">
+                  <div className="h-full bg-black/30 rounded-lg p-4 overflow-auto animate-fade-in">
+                    <pre className="text-sm text-green-400 font-mono">{generatedSite.html}</pre>
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="css" className="flex-1 mt-0 overflow-hidden">
+                  <div className="h-full bg-black/30 rounded-lg p-4 overflow-auto animate-fade-in">
+                    <pre className="text-sm text-blue-400 font-mono">{generatedSite.css}</pre>
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="js" className="flex-1 mt-0 overflow-hidden">
+                  <div className="h-full bg-black/30 rounded-lg p-4 overflow-auto animate-fade-in">
+                    <pre className="text-sm text-yellow-400 font-mono">{generatedSite.js}</pre>
+                  </div>
+                </TabsContent>
+              </Tabs>
+            ) : (
+              <div className="h-full bg-gradient-to-br from-primary/10 to-secondary/10 rounded-lg flex items-center justify-center">
+                <div className="text-center space-y-4">
+                  <Icon name="Layout" size={64} className="text-primary/50 mx-auto" />
+                  <p className="text-muted-foreground">
+                    Здесь появится превью вашего сайта
+                  </p>
+                </div>
               </div>
-            </div>
+            )}
           </Card>
         </div>
       </div>
